@@ -39,8 +39,9 @@ jobs:
           REF: ${{ inputs.ref }}
           MSG: ${{ inputs.message }}
         run: |
-          git tag -a "$TAG" "$REF" -m "$MSG"
-          git push origin "refs/tags/$TAG"
+          # -f: позволяет исправить описание уже поставленной базовой линии
+          git tag -fa "$TAG" "$REF" -m "$MSG"
+          git push -f origin "refs/tags/$TAG"
       - name: Release tag from VERSION
         if: github.event_name == 'push'
         run: |
