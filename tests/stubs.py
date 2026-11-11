@@ -34,6 +34,9 @@ class FakeRepository(IAppointmentRepository):
     def save(self, appointment):
         self.items.append(appointment)
 
+    def find_by_id(self, appointment_id):
+        return next((a for a in self.items if a.id == appointment_id), None)
+
     def find_by_master_and_day(self, master_id, day):
         return [a for a in self.items if a.master_id == master_id and a.slot.start.date() == day]
 

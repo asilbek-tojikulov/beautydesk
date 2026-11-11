@@ -27,6 +27,15 @@ class TimeSlot:
         return int((self.end - self.start).total_seconds() // 60)
 
 
+@dataclass(frozen=True)
+class AppointmentChange:
+    action: str            # reschedule / cancel
+    old_start: datetime
+    new_start: datetime
+    user_id: str
+    reason: str = ""
+
+
 @dataclass
 class Appointment:
     client_id: str
@@ -35,6 +44,7 @@ class Appointment:
     slot: TimeSlot
     status: Status = Status.PLANNED
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
+    history: list = field(default_factory=list)     # FR-06: история изменений
 
 
 class BookingError(Exception):
