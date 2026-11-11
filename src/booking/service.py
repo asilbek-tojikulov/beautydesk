@@ -1,6 +1,6 @@
 """Компонент 3. BookingService – запись клиента (UC-01), использует компоненты 1 и 2."""
 from datetime import timedelta
-from .models import Appointment, BookingError, TimeSlot
+from .models import Appointment, AppointmentChange, BookingError, Status, TimeSlot
 
 
 class BookingService:
@@ -26,3 +26,21 @@ class BookingService:
             self.lock.release(master_id, slot)
         self.notifier.appointment_created(appointment)
         return appointment
+
+    def cancel(self, appointment_id, reason: str, user_id: str) -> Appointment:
+        """Отмена записи с обязательной причиной; время сразу освобождается (FR-07)."""
+        a = self._get(appointment_id)
+        if not reason or not reason.strip():
+            raise BookingError("NO_REASON", "Укажите причину отмены")
+        if a.status not in (Status.PLANNED, Status.CONFIRMED):
+            raise BookingError("WRONG_STATUS", f"Нельзя отменить запись в статусе «{a.status.value}»")
+        a.status = Status.CANCELLED
+        a.history.append(AppointmentChange("cancel", a.slot.start, a.slot.start, user_id, reason.strip()))
+        self.repo.save(a)
+        return a
+
+    def _get(self, appointment_id) -> Appointment:
+        a = self.repo.find_by_id(appointment_id)
+        if a is None:
+            raise BookingError("NOT_FOUND", "Запись не найдена")
+        return a
