@@ -1,0 +1,53 @@
+name: Tag
+
+# Аннотированные теги ставятся на стороне GitHub:
+#  - при слиянии в main — тег vX.Y.Z по файлу VERSION (если такого тега ещё нет);
+#  - вручную (Run workflow) — тег базовой линии на указанный коммит.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Имя тега, например bl-requirements-1.0"
+        required: true
+      ref:
+        description: "Коммит или ветка"
+        required: true
+      message:
+        description: "Описание базовой линии"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git
+        run: |
+          git config user.name "Asilbek Tojikulov"
+          git config user.email "354817352+asilbek-tojikulov@users.noreply.github.com"
+      - name: Baseline tag (manual)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ inputs.tag }}
+          REF: ${{ inputs.ref }}
+          MSG: ${{ inputs.message }}
+        run: |
+          git tag -a "$TAG" "$REF" -m "$MSG"
+          git push origin "refs/tags/$TAG"
+      - name: Release tag from VERSION
+        if: github.event_name == 'push'
+        run: |
+          V="v$(cat VERSION)"
+          if git rev-parse -q --verify "refs/tags/$V" >/dev/null; then
+            echo "Тег $V уже существует"; exit 0
+          fi
+          NOTES=$(awk -v v="$(cat VERSION)" '$0 ~ "^## \\[" v "\\]"{f=1;next} /^## \[/{f=0} f' CHANGELOG.md)
+          git tag -a "$V" -m "BeautyDesk $V" -m "$NOTES"
+          git push origin "refs/tags/$V"
