@@ -8,7 +8,7 @@ class AvailabilityChecker:
         self.schedule = schedule
         self.repo = repo
 
-    def is_free(self, master_id: str, slot: TimeSlot) -> bool:
+    def is_free(self, master_id: str, slot: TimeSlot, exclude_id=None) -> bool:
         shift = self.schedule.shift_of(master_id, slot.start.date())   # 1
         if shift is None:                                               # 2
             return False                                                # 3
@@ -16,7 +16,7 @@ class AvailabilityChecker:
             return False                                                # 5
         if slot.end > shift.end:                                        # 6
             return False                                                # 7
-        for busy in self._busy_slots(master_id, slot.start.date()):     # 8
+        for busy in self._busy_slots(master_id, slot.start.date(), exclude_id):  # 8
             if self._overlaps(slot, busy):                              # 9
                 return False                                            # 10
         return True                                                     # 11
@@ -32,10 +32,10 @@ class AvailabilityChecker:
             t += timedelta(minutes=step)
         return result
 
-    def _busy_slots(self, master_id, day):
+    def _busy_slots(self, master_id, day, exclude_id=None):
         busy = list(self.schedule.breaks_of(master_id, day))
         busy += [a.slot for a in self.repo.find_by_master_and_day(master_id, day)
-                 if a.status not in (Status.CANCELLED, Status.NO_SHOW)]
+                 if a.status not in (Status.CANCELLED, Status.NO_SHOW) and a.id != exclude_id]
         return busy
 
     @staticmethod
