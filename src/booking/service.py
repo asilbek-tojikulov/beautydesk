@@ -39,6 +39,26 @@ class BookingService:
         self.repo.save(a)
         return a
 
+    def reschedule(self, appointment_id, new_start, user_id: str) -> Appointment:
+        """Перенос с повторной проверкой правил и пересечений и записью в историю (FR-06)."""
+        a = self._get(appointment_id)
+        if a.status not in (Status.PLANNED, Status.CONFIRMED):
+            raise BookingError("WRONG_STATUS", f"Нельзя перенести запись в статусе «{a.status.value}»")
+        self.rules.check(new_start, a.slot.minutes, self.clock())
+        new_slot = TimeSlot(new_start, new_start + (a.slot.end - a.slot.start))
+        if not self.lock.acquire(a.master_id, new_slot):
+            raise BookingError("LOCKED", "Это время сейчас оформляет другой администратор")
+        try:
+            if not self.checker.is_free(a.master_id, new_slot, exclude_id=a.id):
+                raise BookingError("NOT_FREE", "Время занято",
+                                   self.checker.nearest_slots(a.master_id, new_start, a.slot.minutes))
+            a.history.append(AppointmentChange("reschedule", a.slot.start, new_start, user_id))
+            a.slot = new_slot
+            self.repo.save(a)
+        finally:
+            self.lock.release(a.master_id, new_slot)
+        return a
+
     def _get(self, appointment_id) -> Appointment:
         a = self.repo.find_by_id(appointment_id)
         if a is None:
