@@ -20,3 +20,25 @@ def normalize_phone(raw: str) -> str:
     if len(digits) != 12 or not digits.startswith("998"):
         raise ValueError(f"некорректный номер телефона: {raw!r}")
     return "+" + digits
+
+
+class ClientDirectory:
+    def __init__(self, clients=()):
+        self._clients = list(clients)
+
+    def add(self, client: Client) -> None:
+        client.phone = normalize_phone(client.phone)
+        if any(c.phone == client.phone for c in self._clients):
+            raise ValueError("клиент с таким номером уже есть")      # FR-02: номер уникален
+        self._clients.append(client)
+
+    def search(self, query: str) -> list:
+        """Поиск по полному номеру или по 4 последним цифрам (FR-01)."""
+        digits = re.sub(r"\D", "", query or "")
+        if len(digits) == 4:
+            return [c for c in self._clients if c.phone.endswith(digits)]
+        try:
+            phone = normalize_phone(query)
+        except ValueError:
+            return []
+        return [c for c in self._clients if c.phone == phone]
